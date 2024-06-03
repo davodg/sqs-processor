@@ -1,0 +1,46 @@
+service: record-processor
+package:
+  patterns:
+    - core/**
+    - shared_libs/**
+    - services/**
+    - models/**
+    - main.py
+    - config.py
+    - requirements.txt
+
+plugins:
+  - serverless-python-requirements
+  - serverless-localstack
+
+custom:
+  localstack:
+    stages:
+      - local
+
+provider:
+  name: aws
+  runtime: python3.11
+  timeout: 60
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: "arn:aws:sns:us-east-1:*:record-processing-notifier"
+
+
+functions:
+  runner:
+    handler: main.main
+    maximumRetryAttempts: 0
+    environment:
+      FESA_API_HOST: http://fesa-api:5001
+      QUEUE_ARN: arn:aws:sqs:us-east-1:000000000000:fesa_queue
+      SNS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:record-processing-notifier
+    events:
+      - sqs:
+          arn: arn:aws:sqs:us-east-1:000000000000:fesa_queue
+          batchSize: 1
+          maximumBatchingWindow: 60
+          functionResponseType: ReportBatchItemFailures
+
